@@ -1,4 +1,4 @@
-.PHONY: container build clean
+.PHONY: container build tag push clean
 
 GOLANG_IMAGE=golang:1.8.3-jessie
 CONTAINER_GOPATH=/go
@@ -9,7 +9,9 @@ KSM_IMPORT_PATH=k8s.io/kube-state-metrics
 KSM_LOCAL_PATH=$(WORKSPACE_DIR)/src/$(KSM_IMPORT_PATH)
 KSM_INSTALL_DIR=$(CONTAINER_GOPATH)/src/$(KSM_IMPORT_PATH)
 
-DOCKER_IMAGE_NAME=kube-state-metrics:k8s_cluster_monitoring
+IMAGE_NAME=kube-state-metrics:k8s_cluster_monitoring
+REMOTE_REG ?= localhost:5000
+REMOTE_TAG=$(REMOTE_REG)/$(IMAGE_NAME)
 
 $(KSM_LOCAL_PATH):
 	mkdir -p $(WORKSPACE_DIR)/bin
@@ -24,7 +26,12 @@ build: | $(KSM_LOCAL_PATH)
 		-w $(KSM_INSTALL_DIR) \
 		--rm $(GOLANG_IMAGE) \
 		make build
-	docker build -f kube-state-metrics/Dockerfile -t $(DOCKER_IMAGE_NAME) .
+	docker build -f kube-state-metrics/Dockerfile -t $(IMAGE_NAME) .
 
+tag:
+	docker tag $(IMAGE_NAME) $(REMOTE_TAG)
+
+push:
+	docker push $(REMOTE_TAG)
 clean:
 	rm -rf $(WORKSPACE_DIR)
