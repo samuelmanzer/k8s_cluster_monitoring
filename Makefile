@@ -11,13 +11,14 @@ WORKSPACE=$(CURDIR)/workspace
 
 # kube-state-metrics executable - we stash the executable
 # inside a customized docker image
-KSM_URL=https://github.com/kubernetes/kube-state-metrics/archive/v0.5.0.tar.gz
+KSM_URL=https://github.com/kubernetes/kube-state-metrics
 KSM_IMPORT_PATH=k8s.io/kube-state-metrics
 KSM_LOCAL_PATH=$(WORKSPACE)/src/$(KSM_IMPORT_PATH)
 KSM_INSTALL_DIR=$(CONTAINER_GOPATH)/src/$(KSM_IMPORT_PATH)
 KSM_IMAGE_NAME=kube-state-metrics:k8s_cluster_monitoring
 KSM_REMOTE_TAG=$(REMOTE_REG)/$(KSM_IMAGE_NAME)
 KSM_CUSTOM_DIR=ksm_custom
+KSM_EXE=kube-state-metrics
 
 # prometheus operator (for kube-prometheus)
 PO_URL=https://github.com/coreos/prometheus-operator/archive/v0.11.0.tar.gz
@@ -25,9 +26,8 @@ PO_LOCAL_PATH=$(WORKSPACE)/src/prometheus-operator
 
 $(KSM_LOCAL_PATH):
 	mkdir -p $(WORKSPACE)/bin
-	wget $(KSM_URL) -O $(WORKSPACE)/ksm.tar.gz && \
-	mkdir -p $(KSM_LOCAL_PATH) && \
-	tar -xf $(WORKSPACE)/ksm.tar.gz -C $(KSM_LOCAL_PATH) --strip-components 1
+	git clone -b master --single-branch --depth 1 $(KSM_URL) $(KSM_LOCAL_PATH)
+	cd $(KSM_LOCAL_PATH) && git checkout bd7418a2a2e5a192f0d82e29302012580dd7dab5
 
 $(PO_LOCAL_PATH):
 	mkdir -p $(WORKSPACE)/bin
@@ -42,8 +42,8 @@ build: | $(KSM_LOCAL_PATH)
 		-w $(KSM_INSTALL_DIR) \
 		--rm $(GOLANG_IMAGE) \
 		make build
-	mv $(KSM_LOCAL_PATH)/kube-state-metrics $(KSM_CUSTOM_DIR)/kube-state-metrics
-	docker build -t $(KSM_IMAGE_NAME) $(KSM_CUSTOM_DIR)
+	docker build -t $(KSM_IMAGE_NAME) $(KSM_LOCAL_PATH)
+
 tag:
 	docker tag $(KSM_IMAGE_NAME) $(KSM_REMOTE_TAG)
 
@@ -55,5 +55,3 @@ deploy: push | $(PO_LOCAL_PATH)
 	cd $(PO_LOCAL_PATH)/contrib/kube-prometheus && \
 	hack/cluster-monitoring/deploy
 	kubectl --namespace=monitoring apply -f $(KSM_CUSTOM_DIR)/deployment.yaml
-clean:
-	rm -rf $(WORKSPACE)
